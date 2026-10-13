@@ -1,18 +1,32 @@
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import * as SQLite from 'expo-sqlite';
-import { useEffect, useState } from 'react';
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useState } from 'react';
 import { Button, Image, ScrollView, Text, View } from 'react-native';
+import { getDatabaseAsync } from '../../database';
 
 export default function DetalleMecanico() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
   const [data, setData] = useState<any>(null);
 
-  useEffect(() => {
-    SQLite.openDatabaseAsync('ptt.db').then(db => {
-      db.getFirstAsync('SELECT * FROM solicitudes WHERE id = ?', [Number(id)]).then(setData);
-    });
-  }, [id]);
+  useFocusEffect(
+    React.useCallback(() => {
+      if (!id || isNaN(Number(id))) return;
+
+      let isActive = true;
+
+      getDatabaseAsync().then(db => {
+        db.getFirstAsync('SELECT * FROM solicitudes WHERE id = ?', [Number(id)])
+          .then(res => {
+            if (isActive) setData(res);
+          });
+      });
+
+      return () => { 
+        isActive = false; 
+        setData(null); 
+      };
+    }, [id])
+  );
 
   if (!data) return <Text style={{padding: 20}}>Cargando detalles...</Text>;
 

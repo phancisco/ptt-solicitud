@@ -1,17 +1,31 @@
-import { useLocalSearchParams } from 'expo-router';
-import * as SQLite from 'expo-sqlite';
-import { useEffect, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
+import React, { useState } from 'react';
 import { Image, ScrollView, Text, View } from 'react-native';
+import { getDatabaseAsync } from '../../database';
 
 export default function Trazabilidad() {
   const { id } = useLocalSearchParams();
   const [data, setData] = useState<any>(null);
 
-  useEffect(() => {
-    SQLite.openDatabaseAsync('ptt.db').then(db => {
-      db.getFirstAsync('SELECT s.*, u.correo FROM solicitudes s JOIN usuarios u ON s.mecanico_id = u.id WHERE s.id = ?', [Number(id)]).then(setData);
-    });
-  }, [id]);
+  useFocusEffect(
+    React.useCallback(() => {
+      if (!id || isNaN(Number(id))) return;
+
+      let isActive = true;
+
+      getDatabaseAsync().then(db => {
+        db.getFirstAsync('SELECT s.*, u.correo FROM solicitudes s JOIN usuarios u ON s.mecanico_id = u.id WHERE s.id = ?', [Number(id)])
+          .then(res => {
+            if (isActive) setData(res);
+          });
+      });
+
+      return () => { 
+        isActive = false; 
+        setData(null); 
+      };
+    }, [id])
+  );
 
   if (!data) return <Text style={{padding: 20}}>Cargando trazabilidad...</Text>;
 
@@ -27,7 +41,6 @@ export default function Trazabilidad() {
         <View style={{ backgroundColor: '#ffe0b2', padding: 15, borderRadius: 8, borderWidth: 1, borderColor: '#ff9800', marginBottom: 15 }}>
           <Text style={{fontSize: 16, fontWeight: 'bold', marginBottom: 5, color: '#e65100'}}>Lo que se solicitó ANTES (Original)</Text>
           <Text><Text style={{fontWeight: 'bold'}}>Descripción Original:</Text> {data.descripcion_original}</Text>
-
           {imagenesOriginales.length > 0 && (
             <View style={{ marginTop: 10 }}>
               <Text style={{ fontWeight: 'bold', marginBottom: 5 }}>Evidencias Originales:</Text>
@@ -43,7 +56,7 @@ export default function Trazabilidad() {
 
       <View style={{ backgroundColor: fueCorregida ? '#e8f5e9' : '#f9f9f9', padding: 15, borderRadius: 8, borderWidth: 1, borderColor: fueCorregida ? '#4caf50' : '#ccc', marginBottom: 20 }}>
         <Text style={{fontSize: 16, fontWeight: 'bold', marginBottom: 5, color: fueCorregida ? '#1b5e20' : '#333'}}>
-          {fueCorregida ? 'Primera solicitud' : 'Solicitud Final'}
+          {fueCorregida ? 'Lo que se solicitó DESPUÉS (Final)' : 'Detalles de la Solicitud (Actual)'}
         </Text>
         <Text><Text style={{fontWeight: 'bold'}}>Mecánico:</Text> {data.correo}</Text>
         <Text><Text style={{fontWeight: 'bold'}}>Componente:</Text> {data.tipo_componente}</Text>
@@ -66,18 +79,9 @@ export default function Trazabilidad() {
       <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 10 }}>Línea de Tiempo</Text>
       <View style={{ backgroundColor: '#fff', padding: 15, borderRadius: 8, borderWidth: 1, borderColor: '#ccc', marginBottom: 40 }}>
         <Text style={{marginBottom: 10}}><Text style={{fontWeight: 'bold'}}>Paso 1:</Text> Solicitud creada por mecánico.</Text>
-        
-        {data.motivo_revision && (
-           <Text style={{marginBottom: 10, color: 'orange'}}><Text style={{fontWeight: 'bold'}}>Paso 2 (Apelación):</Text> Devuelta por supervisor. Motivo: {data.motivo_revision}</Text>
-        )}
-        
-        {fueCorregida && (
-           <Text style={{marginBottom: 10}}><Text style={{fontWeight: 'bold'}}>Paso 3:</Text> Corregida y reenviada por el mecánico.</Text>
-        )}
-        
-        <Text style={{marginTop: 10, color: data.estado === 'APROBADA' ? 'green' : 'red'}}>
-          <Text style={{fontWeight: 'bold'}}>Decisión Final:</Text> Solicitud {data.estado} por el Supervisor.
-        </Text>
+        {data.motivo_revision && <Text style={{marginBottom: 10, color: 'orange'}}><Text style={{fontWeight: 'bold'}}>Paso 2 (Apelación):</Text> Devuelta por supervisor. Motivo: {data.motivo_revision}</Text>}
+        {fueCorregida && <Text style={{marginBottom: 10}}><Text style={{fontWeight: 'bold'}}>Paso 3:</Text> Corregida y reenviada por el mecánico.</Text>}
+        <Text style={{marginTop: 10, color: data.estado === 'APROBADA' ? 'green' : 'red'}}><Text style={{fontWeight: 'bold'}}>Decisión Final:</Text> Solicitud {data.estado} por el Supervisor.</Text>
       </View>
     </ScrollView>
   );

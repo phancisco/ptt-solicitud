@@ -1,29 +1,55 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import * as SQLite from 'expo-sqlite';
-import { useEffect, useState } from 'react';
-import { Alert, Button, Image, ScrollView, Text, TextInput, View } from 'react-native';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import { ActivityIndicator, Alert, Button, Image, ScrollView, Text, TextInput, View } from 'react-native';
+import { getDatabaseAsync } from '../../database';
 
 export default function Evaluar() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
   const [data, setData] = useState<any>(null);
   const [motivo, setMotivo] = useState('');
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    SQLite.openDatabaseAsync('ptt.db').then(db => {
-      db.getFirstAsync('SELECT * FROM solicitudes WHERE id = ?', [Number(id)]).then(setData);
-    });
-  }, [id]);
+  useFocusEffect(
+    React.useCallback(() => {
+      if (!id || isNaN(Number(id))) return;
+
+      let isActive = true;
+      setMotivo('');
+      setLoading(true);
+
+      getDatabaseAsync().then(db => {
+        db.getFirstAsync('SELECT * FROM solicitudes WHERE id = ?', [Number(id)])
+          .then(res => {
+            if (isActive) {
+              setData(res);
+              setLoading(false);
+            }
+          })
+          .catch(() => { if (isActive) setLoading(false); });
+      });
+
+      return () => { 
+        isActive = false; 
+        setData(null); 
+      };
+    }, [id])
+  );
 
   const resolver = async (estado: string) => {
     if (estado === 'EN REVISION' && !motivo) return Alert.alert('Error', 'Falta motivo para apelar');
-    const db = await SQLite.openDatabaseAsync('ptt.db');
-    await db.runAsync('UPDATE solicitudes SET estado = ?, motivo_revision = ? WHERE id = ?', [estado, motivo, Number(id)]);
-    Alert.alert('Listo', `Solicitud ${estado}`);
-    router.replace('/(supervisor)/pendientes' as any);
+    try {
+      const db = await getDatabaseAsync();
+      await db.runAsync('UPDATE solicitudes SET estado = ?, motivo_revision = ? WHERE id = ?', [estado, motivo, Number(id)]);
+      Alert.alert('Listo', `Solicitud ${estado}`);
+      router.replace('/(supervisor)/pendientes' as any);
+    } catch (e: any) {
+      Alert.alert('Error', 'No se pudo guardar la decisión');
+    }
   };
 
-  if (!data) return <Text>Cargando...</Text>;
+  if (loading) return <View style={{flex: 1, justifyContent: 'center'}}><ActivityIndicator size="large" /></View>;
+  if (!data) return <Text style={{padding: 20}}>No se encontró la solicitud.</Text>;
 
   const imagenes = data.imagenes ? JSON.parse(data.imagenes) : [];
 

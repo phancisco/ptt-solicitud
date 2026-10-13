@@ -1,13 +1,13 @@
 import { useFocusEffect } from 'expo-router';
-import * as SQLite from 'expo-sqlite';
 import React, { useState } from 'react';
 import { Button, FlatList, Text, View } from 'react-native';
+import { getDatabaseAsync } from '../../database';
 
 export default function SolicitudesAdmin() {
   const [solicitudes, setSolicitudes] = useState<any[]>([]);
 
   const load = async () => {
-    const db = await SQLite.openDatabaseAsync('ptt.db');
+    const db = await getDatabaseAsync();
     const result = await db.getAllAsync('SELECT * FROM solicitudes');
     setSolicitudes(result);
   };
@@ -15,7 +15,7 @@ export default function SolicitudesAdmin() {
   useFocusEffect(React.useCallback(() => { load(); }, []));
 
   const eliminar = async (id: number) => {
-    const db = await SQLite.openDatabaseAsync('ptt.db');
+    const db = await getDatabaseAsync();
     await db.runAsync('DELETE FROM solicitudes WHERE id = ?', [id]);
     load();
   };

@@ -1,7 +1,7 @@
 import { Picker } from '@react-native-picker/picker';
-import * as SQLite from 'expo-sqlite';
 import { useEffect, useState } from 'react';
 import { Alert, Button, FlatList, Text, TextInput, View } from 'react-native';
+import { getDatabaseAsync } from '../../database';
 
 export default function UsuariosAdmin() {
   const [usuarios, setUsuarios] = useState<any[]>([]);
@@ -10,7 +10,7 @@ export default function UsuariosAdmin() {
   const [rol, setRol] = useState('MECANICO');
 
   const loadUsers = async () => {
-    const db = await SQLite.openDatabaseAsync('ptt.db');
+    const db = await getDatabaseAsync();
     const result = await db.getAllAsync('SELECT * FROM usuarios');
     setUsuarios(result);
   };
@@ -18,14 +18,14 @@ export default function UsuariosAdmin() {
   useEffect(() => { loadUsers(); }, []);
 
   const crearUsuario = async () => {
-    const db = await SQLite.openDatabaseAsync('ptt.db');
+    const db = await getDatabaseAsync();
     await db.runAsync('INSERT INTO usuarios (correo, password, rol) VALUES (?, ?, ?)', [correo, password, rol]);
     Alert.alert('Éxito', 'Usuario creado');
     loadUsers();
   };
 
   const eliminarUsuario = async (id: number) => {
-    const db = await SQLite.openDatabaseAsync('ptt.db');
+    const db = await getDatabaseAsync();
     await db.runAsync('DELETE FROM usuarios WHERE id = ?', [id]);
     loadUsers();
   };

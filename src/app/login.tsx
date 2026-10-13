@@ -1,9 +1,9 @@
 import { useRouter } from 'expo-router';
-import * as SQLite from 'expo-sqlite';
 import { useState } from 'react';
 import { Alert, Button, StyleSheet, Text, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
+import { getDatabaseAsync } from '../database';
 
 export default function Login() {
   const [correo, setCorreo] = useState('');
@@ -12,19 +12,26 @@ export default function Login() {
   const router = useRouter();
 
   const handleLogin = async () => {
-    const db = await SQLite.openDatabaseAsync('ptt.db');
-    const user = await db.getFirstAsync<{id: number, rol: string}>(
-      'SELECT id, rol FROM usuarios WHERE correo = ? AND password = ?', 
-      [correo, password]
-    );
+    try {
+      const db = await getDatabaseAsync();
+      const user = await db.getFirstAsync<{id: number, rol: string}>(
+        'SELECT id, rol FROM usuarios WHERE correo = ? AND password = ?', 
+        [correo, password]
+      );
 
-    if (user) {
-      login(user.id, user.rol as any);
-      if (user.rol === 'MECANICO') router.replace('/(mecanico)/inicio' as any);
-      else if (user.rol === 'SUPERVISOR') router.replace('/(supervisor)/pendientes' as any);
-      else if (user.rol === 'ADMIN') router.replace('/(admin)/usuarios' as any);
-    } else {
-      Alert.alert('Error', 'Credenciales incorrectas');
+      if (user) {
+        login(user.id, user.rol as any);
+        setCorreo('');
+        setPassword('');
+        
+        if (user.rol === 'MECANICO') router.replace('/(mecanico)/inicio' as any);
+        else if (user.rol === 'SUPERVISOR') router.replace('/(supervisor)/pendientes' as any);
+        else if (user.rol === 'ADMIN') router.replace('/(admin)/usuarios' as any);
+      } else {
+        Alert.alert('Error', 'Credenciales incorrectas');
+      }
+    } catch (e: any) {
+      Alert.alert('Error de Conexión', e.message || 'La base de datos está ocupada, intenta de nuevo.');
     }
   };
 
